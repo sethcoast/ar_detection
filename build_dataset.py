@@ -1,3 +1,4 @@
+import math
 import random
 
 from cv2 import aruco
@@ -12,7 +13,7 @@ import matplotlib.image as mpimg
 # %matplotlib nbagg
 # %matplotlib inline
 
-
+# now the goal is to add perspective transform
 def add_ar_tag_to_img(img):
     h = img.shape[0]
     w = img.shape[1]
@@ -29,9 +30,11 @@ def add_ar_tag_to_img(img):
     for i in range(3):
         ar_0[:, :, i] = ar
 
-    # choose random center coordinate to place ar tage
+    # choose random center coordinate to place ar tag
     c_x = random.randint(0,w)
     c_y = random.randint(0,h)
+    # c_x = 200
+    # c_y = 200
 
     # Bounds on where AR tag will go in src img
     min_y = int(max(0, c_y-(ar.shape[0]/2)))
@@ -45,12 +48,45 @@ def add_ar_tag_to_img(img):
     max_y_ar = int(min(ar.shape[0],ar.shape[0]+(h-(c_y+(ar.shape[0]/2)))))
     max_x_ar = int(min(ar.shape[1],ar.shape[1]+(w-(c_x+(ar.shape[1]/2)))))
 
-    # put AR tag in src img
-    selection = ar_0[min_y_ar:max_y_ar, min_x_ar:max_x_ar]
-    img[min_y:max_y, min_x:max_x] = selection
+    # pts for homography
+    pts1 = np.float32([[min_y_ar, min_x_ar], [max_y_ar, min_x_ar], [min_y_ar, max_x_ar], [max_y_ar, max_x_ar]])
+    pts2 = np.float32([
+        [min_y, min_x],
+        [max_y, min_x],
+        [min_y+int(ar.shape[0]/4), max_x-int(ar.shape[1]/2)],
+        [max_y-int(ar.shape[0]/4), max_x-int(ar.shape[1]/2)],
+    ])
+    # homography
+    hom, mask = cv2.findHomography(pts1, pts2, cv2.RANSAC, 5.0)
+    ar_0_reg = cv2.warpPerspective(ar_0, hom, (w,h))
+    plt.imshow(ar_0_reg)
+    plt.show()
 
-    # Return ar's: presence (0|1), h, w, center (x,y)
-    return img
+
+    mask2 = np.zeros_like(img, dtype=np.uint8)
+    # Simply pts2 reordered
+    roi_corners = np.int32([
+        [min_y, min_x],
+        [max_y, min_x],
+        [max_y-int(ar.shape[0]/4), max_x-int(ar.shape[1]/2)],
+        [min_y+int(ar.shape[0]/4), max_x-int(ar.shape[1]/2)],
+    ])
+
+    channel_count2 = img.shape[2]
+    ignore_mask_color2 = (255,) * channel_count2
+
+    cv2.fillConvexPoly(mask2, roi_corners, ignore_mask_color2)
+
+    plt.imshow(mask2)
+    plt.show()
+
+    mask2 = cv2.bitwise_not(mask2)
+    masked_image2 = cv2.bitwise_and(img, mask2)
+
+    # Using Bitwise or to merge the two images
+    final = cv2.bitwise_or(np.uint8(ar_0_reg), masked_image2)
+
+    return final
 
 
 
@@ -60,10 +96,10 @@ def main():
     img_name = imgs.loc[24][0]
     utah_desert = 'utah_desert'
     places = 'testSet_resize'
-    img_name = "utah_desert_1.jpg"
+    # img_name = "utah_desert_1.jpg"
 
 
-    img = cv2.imread('../{}/{}'.format(utah_desert, img_name),)
+    img = cv2.imread('../{}/{}'.format(places, img_name),)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     img = add_ar_tag_to_img(img)
@@ -72,32 +108,35 @@ def main():
     plt.show()
 
 
-def affine_test(src):
-    srcTri = np.array([
-        [0, 0],
-        [src.shape[1] - 1, 0],
-        [0, src.shape[0] - 1]
-    ]).astype(np.float32)
-    dstTri = np.array([
-        [0, src.shape[1]*0.33],
-        [src.shape[1] * 0.85, src.shape[0] * 0.25],
-        [src.shape[1] * 0.15, src.shape[0] * 0.7]
-    ]).astype(np.float32)
-    warp_mat = cv2.getAffineTransform(srcTri, dstTri)
-    warp_dst = cv2.warpAffine(src, warp_mat, (src.shape[1], src.shape[0]))
-    # Rotating the image after Warp
-    center = (warp_dst.shape[1] // 2, warp_dst.shape[0] // 2)
-    angle = -50
-    scale = 0.6
-    rot_mat = cv2.getRotationMatrix2D(center, angle, scale)
-    warp_rotate_dst = cv2.warpAffine(warp_dst, rot_mat, (warp_dst.shape[1], warp_dst.shape[0]))
-    # plt.imshow(src)
-    # plt.show()
-    plt.imshow(warp_dst)
-    plt.show()
-    # plt.imshow(warp_rotate_dst)
-    # plt.show()
-
 
 if __name__ == '__main__':
     main()
+
+
+
+
+
+
+
+ # Translation matrix on the y axis Mat
+# rotation = -1
+# ry = np.array([
+#     [math.cos(math.radians(rotation)), 0, -math.sin(math.radians(rotation))],
+#     [0, 1, 0],
+#     [math.sin(math.radians(rotation)), 0, math.cos(math.radians(rotation))],
+# ])
+# rx = np.array([
+#     [1, 0, 0],
+#     [0, math.cos(math.radians(rotation)), -math.sin(math.radians(rotation))],
+#     [0, math.sin(math.radians(rotation)), math.cos(math.radians(rotation))],
+# ])
+# rz = np.array([
+#     [math.cos(math.radians(rotation)), -math.sin(math.radians(rotation)), 0],
+#     [math.sin(math.radians(rotation)), math.cos(math.radians(rotation)), 0],
+#     [0, 0, 1],
+# ])
+# dst = np.zeros_like(ar_0)
+#
+# dst = cv2.warpPerspective(ar_0, ry, ar.shape)
+# plt.imshow(dst)
+# plt.show()
