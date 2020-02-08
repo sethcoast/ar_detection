@@ -18,11 +18,11 @@ def add_ar_tag_to_img(img):
     h = img.shape[0]
     w = img.shape[1]
     max_sz = min(h, w)*0.35
-    id = 42 #random.randint(0, 999)
+    id = random.randint(0, 999)
     mult = random.randint(1, int(max_sz/8))
 
     # create a random AR tag
-    ar = cv2.aruco.drawMarker(aruco.Dictionary_get(aruco.DICT_5X5_1000), id, sidePixels=8*8, img=img, borderBits=1)
+    ar = cv2.aruco.drawMarker(aruco.Dictionary_get(aruco.DICT_5X5_1000), id, sidePixels=8*mult, img=img, borderBits=1)
     print(ar.shape)
 
     # fix shape
@@ -31,22 +31,23 @@ def add_ar_tag_to_img(img):
         ar_0[:, :, i] = ar
 
     # choose random center coordinate to place ar tag
-    # c_x = random.randint(0,w)
-    # c_y = random.randint(0,h)
-    c_x = 100
-    c_y = 200
+    buffer = ar.shape[0]/2
+    c_x = random.randint(0+buffer, w-buffer)
+    c_y = random.randint(0+buffer, h-buffer)
+    # c_x = 100
+    # c_y = 200
 
     # Bounds on where AR tag will go in src img
-    min_y = int(max(0, c_y-(ar.shape[0]/2)))
-    min_x = int(max(0, c_x-(ar.shape[1]/2)))
-    max_y = int(min(h, c_y+(ar.shape[0]/2)))
-    max_x = int(min(w, c_x+(ar.shape[1]/2)))
+    min_y = c_y-(ar.shape[0]/2)
+    min_x = c_x-(ar.shape[1]/2)
+    max_y = c_y+(ar.shape[0]/2)
+    max_x = c_x+(ar.shape[1]/2)
 
-    # Bounds on AR tag (i.e. how to cut the tag when it goes off the screen)
-    min_y_ar = int(np.absolute(min(0,c_y-(ar.shape[0]/2))))
-    min_x_ar = int(np.absolute(min(0,c_x-(ar.shape[1]/2))))
-    max_y_ar = int(min(ar.shape[0],ar.shape[0]+(h-(c_y+(ar.shape[0]/2)))))
-    max_x_ar = int(min(ar.shape[1],ar.shape[1]+(w-(c_x+(ar.shape[1]/2)))))
+    # Bounds on AR tag
+    min_y_ar = 0
+    min_x_ar = 0
+    max_y_ar = ar.shape[0]
+    max_x_ar = ar.shape[1]
 
     selection = ar_0[min_y_ar:max_y_ar, min_x_ar:max_x_ar]
     plt.imshow(selection)
