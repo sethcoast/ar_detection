@@ -49,11 +49,13 @@ def add_ar_tag_to_img(img):
     plt.show()
 
     # pts for homography
+    rotation_x_factor = random.gauss(0, 0.34)
+    rotation_y_factor = rotation_x_factor/4
     pts1 = np.float32([[0, 0], [(ar.shape[0]), 0], [0, (ar.shape[1])], [(ar.shape[0]), (ar.shape[1])]])
     pts2 = np.float32([
-        [max_x-int(ar.shape[1]/2), min_y+int(ar.shape[0]/8)],
+        [max_x-int(ar.shape[1]*rotation_x_factor), min_y+int(ar.shape[0]*rotation_y_factor)],
         [min_x, min_y],
-        [max_x-int(ar.shape[1]/2), max_y-int(ar.shape[0]/8)],
+        [max_x-int(ar.shape[1]*rotation_x_factor), max_y-int(ar.shape[0]*rotation_y_factor)],
         [min_x, max_y],
     ])
     # homography
