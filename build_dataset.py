@@ -44,17 +44,12 @@ def add_ar_tag_to_img(img):
     max_x = c_x+(ar.shape[1]/2)
 
     # Bounds on AR tag
-    min_y_ar = 0
-    min_x_ar = 0
-    max_y_ar = ar.shape[0]
-    max_x_ar = ar.shape[1]
-
-    selection = ar_0[min_y_ar:max_y_ar, min_x_ar:max_x_ar]
+    selection = ar_0[0:ar.shape[0], 0:ar.shape[1]]
     plt.imshow(selection)
     plt.show()
 
     # pts for homography
-    pts1 = np.float32([[min_y_ar, min_x_ar], [max_y_ar, min_x_ar], [min_y_ar, max_x_ar], [max_y_ar, max_x_ar]])
+    pts1 = np.float32([[0, 0], [(ar.shape[0]), 0], [0, (ar.shape[1])], [(ar.shape[0]), (ar.shape[1])]])
     pts2 = np.float32([
         [max_x-int(ar.shape[1]/2), min_y+int(ar.shape[0]/8)],
         [min_x, min_y],
