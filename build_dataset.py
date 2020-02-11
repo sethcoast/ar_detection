@@ -15,55 +15,57 @@ import matplotlib.image as mpimg
 
 # now the goal is to add perspective transform
 def add_ar_tag_to_img(img):
-    h = img.shape[0]
-    w = img.shape[1]
-    max_sz = min(h, w)*0.35
-    id = random.randint(0, 999)
-    mult = random.randint(1, int(max_sz/8))
+    try:
+        h = img.shape[0]
+        w = img.shape[1]
+        max_sz = min(h, w)*0.35
+        id = random.randint(0, 999)
+        mult = random.randint(1, int(max_sz/8))
 
-    # create a random AR tag
-    ar = cv2.aruco.drawMarker(aruco.Dictionary_get(aruco.DICT_5X5_1000), id, sidePixels=8*mult, img=img, borderBits=1)
-    print(ar.shape)
+        # create a random AR tag
+        ar = cv2.aruco.drawMarker(aruco.Dictionary_get(aruco.DICT_5X5_1000), id, sidePixels=8*mult, img=img, borderBits=1)
+        # print(ar.shape)
 
-    # fix shape
-    ar_0 = np.zeros(shape=(ar.shape[0], ar.shape[1], 3))
-    for i in range(3):
-        ar_0[:, :, i] = ar
+        # fix shape
+        ar_0 = np.zeros(shape=(ar.shape[0], ar.shape[1], 3))
+        for i in range(3):
+            ar_0[:, :, i] = ar
 
-    # choose random center coordinate to place ar tag
-    buffer = ar.shape[0]/2
-    c_x = random.randint(0+buffer, w-buffer)
-    c_y = random.randint(0+buffer, h-buffer)
-    # c_x = 100
-    # c_y = 200
+        # choose random center coordinate to place ar tag
+        buffer = ar.shape[0]/2
+        c_x = random.randint(0+buffer, w-buffer)
+        c_y = random.randint(0+buffer, h-buffer)
 
-    ## pts for homography
-    # ar pts
-    pts1 = np.float32([[0, 0], [(ar.shape[0]), 0], [0, (ar.shape[1])], [(ar.shape[0]), (ar.shape[1])]])
-    # src pts
-    pts2, c_x, c_y, ar_h, ar_w = get_src_points(ar, c_x, c_y)
-    # homography
-    hom, mask = cv2.findHomography(pts1, pts2, cv2.RANSAC, 5.0)
-    ar_0_reg = cv2.warpPerspective(ar_0, hom, (w,h))
-    # Mask the region of interest
-    mask2 = np.zeros_like(img, dtype=np.uint8)
-    roi_corners = pts_to_roi(pts2)
-    channel_count2 = img.shape[2]
-    ignore_mask_color2 = (255,) * channel_count2
-    cv2.fillConvexPoly(mask2, roi_corners, ignore_mask_color2)
-    mask2 = cv2.bitwise_not(mask2)
-    masked_image2 = cv2.bitwise_and(img, mask2)
+        ## pts for homography
+        # ar pts
+        pts1 = np.float32([[0, 0], [(ar.shape[0]), 0], [0, (ar.shape[1])], [(ar.shape[0]), (ar.shape[1])]])
+        # src pts
+        pts2, c_x, c_y, ar_h, ar_w = get_src_points(ar, c_x, c_y)
+        # homography
+        hom, mask = cv2.findHomography(pts1, pts2, cv2.RANSAC, 5.0)
+        ar_0_reg = cv2.warpPerspective(ar_0, hom, (w,h))
+        # Mask the region of interest
+        mask2 = np.zeros_like(img, dtype=np.uint8)
+        roi_corners = pts_to_roi(pts2)
+        channel_count2 = img.shape[2]
+        ignore_mask_color2 = (255,) * channel_count2
+        cv2.fillConvexPoly(mask2, roi_corners, ignore_mask_color2)
+        mask2 = cv2.bitwise_not(mask2)
+        masked_image2 = cv2.bitwise_and(img, mask2)
 
-    # Using Bitwise or to merge the two images
-    final = cv2.bitwise_or(np.uint8(ar_0_reg), masked_image2)
+        # Using Bitwise or to merge the two images
+        final = cv2.bitwise_or(np.uint8(ar_0_reg), masked_image2)
 
-    v = 2
-    final[c_y - v:c_y + v, c_x - v:c_x + v] = (255, 0, 0)
-    print(ar_w)
-    print(ar_h)
+        # v = 2
+        # final[c_y - v:c_y + v, c_x - v:c_x + v] = (255, 0, 0)
+        # print(ar_w)
+        # print(ar_h)
 
-    # return
-    return final
+        # return
+        p = 1
+        return final, p, c_x, c_y, ar_h, ar_w
+    except:
+        return img, 0, 0, 0, 0, 0
 
 
 def get_src_points(ar, c_x, c_y):
@@ -113,19 +115,31 @@ def pts_to_roi(pts2):
 def main():
     # pull in csv and read first few lines to figure out wtf you're supposed to do
     imgs = pd.read_csv("imgList.csv")
-    img_name = imgs.loc[24][0]
-    utah_desert = 'utah_desert'
     places = 'testSet_resize'
-    # img_name = "utah_desert_1.jpg"
+
+    data = []
+
+    # loop through all pictures in csv
+    for idx, img_name in imgs.iterrows():
+        img_name = img_name[0]
+        img = cv2.imread('../{}/{}'.format(places, img_name), )
+        img, p, c_x, c_y, ar_h, ar_w = add_ar_tag_to_img(img)
+        data.append([img_name, p, c_x, c_y, ar_h, ar_w])
+
+        cv2.imwrite('../ar_data/{}'.format(img_name), img)
+
+        if idx == 35000:
+            break
 
 
-    img = cv2.imread('../{}/{}'.format(places, img_name),)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    data = pd.DataFrame(data)
+    data.columns = ['name', 'valid', 'x', 'y', 'h', 'w']
+    data.to_csv("../ar_data_labels.csv")
 
-    img = add_ar_tag_to_img(img)
+    return
 
-    plt.imshow(img)
-    plt.show()
+
+
 
 
 
