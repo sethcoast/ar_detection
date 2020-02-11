@@ -37,52 +37,55 @@ def add_ar_tag_to_img(img):
     # c_x = 100
     # c_y = 200
 
-    # Bounds on where AR tag will go in src img
-    min_y = c_y-(ar.shape[0]/2)
-    min_x = c_x-(ar.shape[1]/2)
-    max_y = c_y+(ar.shape[0]/2)
-    max_x = c_x+(ar.shape[1]/2)
-
-    # Bounds on AR tag
-    selection = ar_0[0:ar.shape[0], 0:ar.shape[1]]
-    plt.imshow(selection)
-    plt.show()
-
-    # pts for homography
-    rotation_x_factor = random.gauss(0, 0.34)
-    rotation_y_factor = rotation_x_factor/4
+    ## pts for homography
+    # ar pts
     pts1 = np.float32([[0, 0], [(ar.shape[0]), 0], [0, (ar.shape[1])], [(ar.shape[0]), (ar.shape[1])]])
-    pts2 = np.float32([
-        [max_x-int(ar.shape[1]*rotation_x_factor), min_y+int(ar.shape[0]*rotation_y_factor)],
-        [min_x, min_y],
-        [max_x-int(ar.shape[1]*rotation_x_factor), max_y-int(ar.shape[0]*rotation_y_factor)],
-        [min_x, max_y],
-    ])
+    # src pts
+    pts2 = get_src_points(ar, c_x, c_y)
     # homography
     hom, mask = cv2.findHomography(pts1, pts2, cv2.RANSAC, 5.0)
     ar_0_reg = cv2.warpPerspective(ar_0, hom, (w,h))
-    plt.imshow(ar_0_reg)
-    plt.show()
-
-
+    # Mask the region of interest
     mask2 = np.zeros_like(img, dtype=np.uint8)
     roi_corners = pts_to_roi(pts2)
-
     channel_count2 = img.shape[2]
     ignore_mask_color2 = (255,) * channel_count2
-
     cv2.fillConvexPoly(mask2, roi_corners, ignore_mask_color2)
-
-    plt.imshow(mask2)
-    plt.show()
-
     mask2 = cv2.bitwise_not(mask2)
     masked_image2 = cv2.bitwise_and(img, mask2)
 
     # Using Bitwise or to merge the two images
     final = cv2.bitwise_or(np.uint8(ar_0_reg), masked_image2)
 
+    # return
     return final
+
+
+def get_src_points(ar, c_x, c_y):
+    # Bounds on where AR tag will go in src img
+    min_y = c_y - (ar.shape[0] / 2)
+    min_x = c_x - (ar.shape[1] / 2)
+    max_y = c_y + (ar.shape[0] / 2)
+    max_x = c_x + (ar.shape[1] / 2)
+
+    rotation_x_factor = random.gauss(0, 0.34)
+    rotation_y_factor = rotation_x_factor / 4
+    if rotation_x_factor > 0:
+        pts2 = np.float32([
+            [max_x - int(ar.shape[1] * rotation_x_factor), min_y + int(ar.shape[0] * rotation_y_factor)],
+            [min_x, min_y],
+            [max_x - int(ar.shape[1] * rotation_x_factor), max_y - int(ar.shape[0] * rotation_y_factor)],
+            [min_x, max_y],
+        ])
+    else:
+        pts2 = np.float32([
+            [max_x, min_y],
+            [min_x - int(ar.shape[1] * rotation_x_factor), min_y - int(ar.shape[0] * rotation_y_factor)],
+            [max_x, max_y],
+            [min_x - int(ar.shape[1] * rotation_x_factor), max_y + int(ar.shape[0] * rotation_y_factor)],
+        ])
+    return pts2
+
 
 # For some reason, the homography expects a certain ordering of the points
 # that the roi mask doesn't expect thus we need to reorder the points.
