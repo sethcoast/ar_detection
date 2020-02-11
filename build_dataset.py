@@ -41,7 +41,7 @@ def add_ar_tag_to_img(img):
     # ar pts
     pts1 = np.float32([[0, 0], [(ar.shape[0]), 0], [0, (ar.shape[1])], [(ar.shape[0]), (ar.shape[1])]])
     # src pts
-    pts2 = get_src_points(ar, c_x, c_y)
+    pts2, c_x, c_y, ar_h, ar_w = get_src_points(ar, c_x, c_y)
     # homography
     hom, mask = cv2.findHomography(pts1, pts2, cv2.RANSAC, 5.0)
     ar_0_reg = cv2.warpPerspective(ar_0, hom, (w,h))
@@ -57,6 +57,11 @@ def add_ar_tag_to_img(img):
     # Using Bitwise or to merge the two images
     final = cv2.bitwise_or(np.uint8(ar_0_reg), masked_image2)
 
+    v = 2
+    final[c_y - v:c_y + v, c_x - v:c_x + v] = (255, 0, 0)
+    print(ar_w)
+    print(ar_h)
+
     # return
     return final
 
@@ -71,20 +76,28 @@ def get_src_points(ar, c_x, c_y):
     rotation_x_factor = random.gauss(0, 0.34)
     rotation_y_factor = rotation_x_factor / 4
     if rotation_x_factor > 0:
+        max_xn = max_x - int(ar.shape[1] * rotation_x_factor)
         pts2 = np.float32([
-            [max_x - int(ar.shape[1] * rotation_x_factor), min_y + int(ar.shape[0] * rotation_y_factor)],
+            [max_xn, min_y + int(ar.shape[0] * rotation_y_factor)],
             [min_x, min_y],
-            [max_x - int(ar.shape[1] * rotation_x_factor), max_y - int(ar.shape[0] * rotation_y_factor)],
+            [max_xn, max_y - int(ar.shape[0] * rotation_y_factor)],
             [min_x, max_y],
         ])
+        c_x = min_x + int((max_xn - min_x) / 2)
+        ar_w = max_xn - min_x
     else:
+        min_xn = min_x - int(ar.shape[1] * rotation_x_factor)
         pts2 = np.float32([
             [max_x, min_y],
-            [min_x - int(ar.shape[1] * rotation_x_factor), min_y - int(ar.shape[0] * rotation_y_factor)],
+            [min_xn, min_y - int(ar.shape[0] * rotation_y_factor)],
             [max_x, max_y],
-            [min_x - int(ar.shape[1] * rotation_x_factor), max_y + int(ar.shape[0] * rotation_y_factor)],
+            [min_xn, max_y + int(ar.shape[0] * rotation_y_factor)],
         ])
-    return pts2
+        c_x = min_xn + int((max_x - min_xn) / 2)
+        ar_w = max_x - min_xn
+
+    ar_h = max_y - min_y
+    return pts2, int(c_x), c_y, ar_h, ar_w
 
 
 # For some reason, the homography expects a certain ordering of the points
